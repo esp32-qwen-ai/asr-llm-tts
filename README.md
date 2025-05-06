@@ -1,5 +1,5 @@
 # 1. 简介
-本仓库是esp32-ai实现中枢，为前端esp32-io提供asr-llm-tts功能
+esp32-qwen-ai实现中枢，为前端esp32-io提供asr-llm-tts功能
 
 # 2. 安装依赖
 ```
