@@ -24,7 +24,9 @@ DASHSCOPE_API_KEY
 ```
 
 3. 配置示例
+
 支持 `.env` 方式配置
+
 ```
 $ cat .env
 LOCAL_LLM_API="http://win.lan:11434/v1"
