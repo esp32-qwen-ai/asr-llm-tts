@@ -1,14 +1,15 @@
 from collections import deque
 import json
 from qwen_agent.agents import Assistant
-from qwen_agent.llm.schema import ASSISTANT, FUNCTION
+from qwen_agent.llm.schema import ASSISTANT
 from qwen_agent.utils.output_beautify import typewriter_print
 import requests
 import re
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import function_tool
+# 为了加载Agent
+import function_tool as _
 
 TOOL_CALL_S = '[TOOL_CALL]'
 TOOL_CALL_E = ''
@@ -18,7 +19,7 @@ THOUGHT_S = '[THINK]'
 
 class LLM:
     LOCAL_LLM_API = os.getenv("LOCAL_LLM_API")
-    LOCAL_LLM_API_PING = os.getenv("LOCAL_LLM_API_PING")
+    LOCAL_LLM_API_PING = os.getenv("LOCAL_LLM_API")
     MIN_TEXT_TO_TTS = 60
     MAX_HISTORY = 10
     PROMPT = {"role": "system", "content": '''
@@ -110,12 +111,11 @@ class LLM:
         'code_interpreter',  # Built-in tools
     ]
 
-    def __init__(self, tts, enable_thinking=False):
+    def __init__(self, tts, enable_thinking=True):
         self.tts = tts
         self.enable_thinking = enable_thinking
         self.history = deque(maxlen=LLM.MAX_HISTORY)
         self.asr = None
-        self.tts_text = ""
         if self._detect_local():
             self.provider = "本地"
             self.model = "qwen3:8b"
@@ -142,7 +142,7 @@ class LLM:
     def _detect_local(self):
         try:
             resp = requests.get(LLM.LOCAL_LLM_API_PING, timeout=0.5)
-            return resp.status_code == 200
+            return resp.status_code in [200, 404]
         except:
             return False
 
@@ -181,13 +181,16 @@ class LLM:
                         function_list=LLM.TOOLS,
                         name='Qwen3 Tool-calling Demo',
                         description="I'm a demo using the Qwen3 tool calling.")
+
     def call(self, text):
         if len(text.strip()) == 0:
             return
-        self.tts_text = ""
         if not self.bot:
             self._init_bot()
-        prefix = "" if self.enable_thinking else "/no_think "
+        prefix = ""
+        if not self.enable_thinking and self.is_local():
+            # 实测ollama本地模型当前没法通过enable_thinking=False方式关闭think，这里hack下
+            prefix = "/no_think "
         self.history.append({"role": "user", "content": prefix + text})
         self._process_history()
         messages = [LLM.PROMPT] + list(self.history)
@@ -195,75 +198,62 @@ class LLM:
         fulltext_tts_done = 0
         fulltext = ""
         response_plain_text = ""
-        need_exit = False
-        in_thinking = True
-        for response in self.bot.run(messages=messages, delta_stream = True):
+        for response in self.bot.run(messages=messages, delta_stream = False):
             response_plain_text = typewriter_print(response, response_plain_text)
-            for msg in response:
-                if msg['role'] == ASSISTANT:
-                    if msg.get('reasoning_content'):
-                        assert isinstance(msg['reasoning_content'], str), 'Now only supports text messages'
-                        text = f'{THOUGHT_S}\n{msg["reasoning_content"]}'
-                    if msg.get('content'):
-                        text = msg["content"]
-                        fulltext += text[len(fulltext):]
-                    if msg.get('function_call'):
-                        text = f'{TOOL_CALL_S} {msg["function_call"]["name"]}\n{msg["function_call"]["arguments"]}'
-                        # 出现function_call会刷新assistant content输出
-                        fulltext = ""
-                        fulltext_tts_done = 0
-                elif msg['role'] == FUNCTION:
-                    text = f'{TOOL_RESULT_S} {msg["name"]}\n{msg["content"]}'
-
-            if not in_thinking:
-                in_thinking = fulltext.find("<think>") != -1
-
-            if in_thinking:
-                pos = fulltext.rfind("</think>")
-                if pos == -1:
+            msg = response[-1]
+            if msg['role'] == ASSISTANT and msg.get('content'):
+                text = msg["content"]
+                if text.startswith("<think>") and "</think>" not in text:
+                    # QwenAgent为了内部实现简单，stream是个复杂的状态机。
+                    # 如果中间有工具调用时，这里需要刷新text
+                    fulltext = ""
+                    assert fulltext_tts_done == 0
                     continue
-                in_thinking = False
 
-            # 识别到退出指令立即退出
-            try:
-                pos = fulltext.find('{"response":')
-                if pos != -1:
-                    if json.loads(fulltext[pos:])["response"] == "EXIT":
-                        need_exit = True
-                    fulltext = fulltext[:pos]
-                    break
-            except:
-                pass
+                pattern = r'<think>.*?</think>'
+                cleaned_text = re.sub(pattern, '', text, flags=re.DOTALL).strip()
+                if not cleaned_text:
+                    continue
 
-            # 为了生成语音连贯性，这里牺牲实时性
-            delta = len(fulltext) - fulltext_tts_done
-            if delta > LLM.MIN_TEXT_TO_TTS:
-                if self._tts(fulltext[fulltext_tts_done:], False):
-                    fulltext_tts_done = len(fulltext)
+                # print(cleaned_text[len(fulltext):], end="", flush=True)
+                fulltext += cleaned_text[len(fulltext):]
+
+                # 为了生成语音连贯性，这里牺牲实时性
+                delta = len(fulltext) - fulltext_tts_done
+                if delta > LLM.MIN_TEXT_TO_TTS:
+                    if self._tts(fulltext[fulltext_tts_done:]):
+                        fulltext_tts_done = len(fulltext)
 
         print()
-        self.history.extend(response)
-
         if fulltext_tts_done < len(fulltext):
-            self._tts(fulltext[fulltext_tts_done:], True)
+            self._tts(fulltext[fulltext_tts_done:])
             fulltext_tts_done = len(fulltext)
 
-        if need_exit and self.tts:
-            self.tts.conn.send(json.dumps({"response": "EXIT"}), True)
+        self.history.extend(response)
 
-    def _tts(self, text, force):
-        pattern = r'<think>.*?</think>'
-        cleaned_text = re.sub(pattern, '', text, flags=re.DOTALL).strip()
-        if not cleaned_text:
-            return True
-        tts_text = cleaned_text[len(self.tts_text):]
-        if not force and len(tts_text) < LLM.MIN_TEXT_TO_TTS:
-            return False
+    def _tts(self, text):
+        # 识别到退出指令终止本轮对话
+        need_exit = False
+        try:
+            pos = text.find('{"response":')
+            if pos != -1:
+                if json.loads(text[pos:])["response"] == "EXIT":
+                    need_exit = True
+                text = text[:pos]
+        except:
+            pass
+
         if self.tts:
-            self.tts.call(tts_text)
+            if text:
+                self.tts.call(text)
+            if need_exit:
+                self.tts.conn.send(json.dumps({"response": "EXIT"}), True)
         else:
-            print(f"\n--> tts: >>>>{tts_text}<<<<")
-        self.tts_text += tts_text
+            print(f"\n--> tts: >>>>{text}<<<<")
+
+        if need_exit:
+            print(f">>>>exit chat<<<<")
+
         return True
 
 if __name__ == "__main__":
@@ -277,8 +267,10 @@ if __name__ == "__main__":
     llm = LLM(None)
     asr = ASR(llm, 16000)
     LLM.init_agent(asr, llm, tts)
+    llm.call("你好，杭州现在几点了，讲个100字冷笑话")
+    llm.call("你好，再见")
     llm.call("随便播放一首中文歌曲")
-    # time.sleep(3)
+    time.sleep(3)
     llm.call("现在在播放哪一首歌曲")
     llm.call("停止播放歌曲")
     llm.call("计算下 1 + 2")

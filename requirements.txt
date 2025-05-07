@@ -1,4 +1,6 @@
+python-dotenv
 dashscope
 openai
 requests
-qwen-agent
+qwen-agent[rag,code_interpreter,gui,mcp]
+python-dateutil

@@ -2,13 +2,13 @@ import requests
 import os
 
 class TTS:
-    LOCAL_TTS_API_PING = os.getenv("LOCAL_TTS_API_PING")
-    LOCAL_TTS_API = os.getenv("LOCAL_TTS_API") 
+    LOCAL_TTS_API = os.getenv("LOCAL_TTS_API")
+    LOCAL_TTS_API_PING = os.getenv("LOCAL_TTS_API") + "/ping"
 
     def __init__(self, conn):
         self.conn = conn
         self.spk_id = "chelsie"
-        self.spk_id_support = requests.get(f"{API_TTS}/list_spk").json()
+        self.spk_id_support = requests.get(f"{TTS.LOCAL_TTS_API}/list_spk").json()
 
     def set_connection(self, conn):
         self.conn = conn
@@ -25,7 +25,7 @@ class TTS:
         return self.spk_id_support
 
     def call(self, text):
-        resp = requests.post(TTS.API_TTS, json={
+        resp = requests.post(f"{TTS.LOCAL_TTS_API}/tts", json={
             "text": text,
             "spk_id": self.spk_id,
         }, stream=True)

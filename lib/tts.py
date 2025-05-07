@@ -23,7 +23,7 @@ class TTS:
 
     def _detect_local(self):
         try:
-            resp = requests.get(localTTS.API_PING, timeout=0.5)
+            resp = requests.get(localTTS.LOCAL_TTS_API_PING, timeout=0.5)
             return resp.status_code == 200
         except:
             return False

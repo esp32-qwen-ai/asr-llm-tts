@@ -1,9 +1,10 @@
 import requests
 import base64
+import os
 
 class ASR:
-    LOCAL_ASR_API_PING = os.getenv("LOCAL_ASR_API_PING")
     LOCAL_ASR_API = os.getenv("LOCAL_ASR_API") 
+    LOCAL_ASR_API_PING = os.getenv("LOCAL_ASR_API") + "/ping"
 
     def __init__(self, llm, sample_rate):
         self.llm = llm
@@ -17,7 +18,7 @@ class ASR:
         pass
 
     def send_audio_frame(self, data, is_finish=False):
-        resp = requests.post(ASR.LOCAL_ASR_API, json={
+        resp = requests.post(f"{ASR.LOCAL_ASR_API}/asr", json={
             "pcm": base64.b64encode(data).decode("utf-8"),
             "sample_rate": self.sample_rate,
             "is_finish": is_finish
