@@ -1,5 +1,7 @@
 from collections import deque
 import json
+import queue
+import threading
 from qwen_agent.agents import Assistant
 from qwen_agent.llm.schema import ASSISTANT
 from qwen_agent.utils.output_beautify import typewriter_print
@@ -129,6 +131,8 @@ class LLM:
             self._init_bailian()
         self.bot = None
         self.need_exit_conversation = False
+        self.tts_thread = None
+        self.tts_queue = queue.Queue()
 
     def _detect_local(self):
         try:
@@ -206,11 +210,37 @@ class LLM:
         print(f"\n\n------------ exit_conversation --------------")
         self.need_exit_conversation = True
 
+    def _start_tts_thread(self):
+        if self.tts_thread:
+            return
+        def tts_process(q):
+            while True:
+                text = q.get()
+                if not text:
+                    break
+                if self.tts:
+                    if text.strip():
+                        self.tts.call(text)
+                else:
+                    print(f"\n--> tts: >>>>{text}<<<<")
+        self.tts_thread = threading.Thread(target = tts_process, args=(self.tts_queue,))
+        self.tts_thread.start()
+
+    def _stop_tts_thread(self):
+        if self.tts_thread:
+            self.tts_queue.put(None)
+            self.tts_thread.join()
+            self.tts_thread = None
+
     def call(self, text):
         if len(text.strip()) == 0:
             return
+
+        self._start_tts_thread()
+
         if not self.bot:
             self._init_bot()
+
         prefix = ""
         if not self.enable_thinking and self.is_local():
             # 实测ollama本地模型当前没法通过enable_thinking=False方式关闭think，这里hack下
@@ -245,27 +275,20 @@ class LLM:
                 # 为了生成语音连贯性，这里牺牲实时性
                 delta = len(fulltext) - fulltext_tts_done
                 if delta > LLM.MIN_TEXT_TO_TTS:
-                    if self._tts(fulltext[fulltext_tts_done:]):
-                        fulltext_tts_done = len(fulltext)
+                    self.tts_queue.put(fulltext[fulltext_tts_done:])
+                    fulltext_tts_done = len(fulltext)
 
         print()
         if fulltext_tts_done < len(fulltext):
-            self._tts(fulltext[fulltext_tts_done:])
+            self.tts_queue.put(fulltext[fulltext_tts_done:])
             fulltext_tts_done = len(fulltext)
 
         self.history.extend(response)
 
+        self._stop_tts_thread()
+
         if self.need_exit_conversation and self.tts:
             self.tts.conn.send(json.dumps({"response": "EXIT"}), True)
-
-    def _tts(self, text):
-        if self.tts:
-            if text.strip():
-                self.tts.call(text)
-        else:
-            print(f"\n--> tts: >>>>{text}<<<<")
-
-        return True
 
 if __name__ == "__main__":
     import sys

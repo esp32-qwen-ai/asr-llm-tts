@@ -163,7 +163,7 @@ class Connection:
 
     def process_pcm(self, is_finish):
         while len(self.pending_pcm) > 0:
-            self.asr.send_audio_frame(self.pending_pcm[0:self.pcm_chunk_size], is_finish)
+            self.asr.send_audio_frame(self.pending_pcm[0:self.pcm_chunk_size], is_finish and (len(self.pending_pcm) <= self.pcm_chunk_size))
             self.pending_pcm = self.pending_pcm[self.pcm_chunk_size:]
 
 def main():

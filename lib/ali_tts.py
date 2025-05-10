@@ -9,7 +9,7 @@ class TTS:
         self.model = model
         self.api_key = os.getenv('DASHSCOPE_API_KEY')
         self.spk_id = "Chelsie"
-        self.spk_id_support = ["Chelsie", "Cherry"]
+        self.spk_id_support = ["Chelsie", "Cherry", "Serena"]
 
     def set_connection(self, conn):
         self.conn = conn
