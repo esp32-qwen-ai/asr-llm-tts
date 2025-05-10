@@ -54,7 +54,9 @@ class SetModelConfig(BaseTool):
     {
         'name': 'config_value',
         'type': 'string',
-        'description': '用户指定要配置的值',
+        'description': '''* 用户指定要配置的值。
+        - 如果要配置`spk_id`：值必须在`supported_spk_ids`列表里，且必须全为英文小写字母；
+        - 如果要配置`provider`：值必须为`本地`或`百炼`，其他值为非法值''',
         'required': True,
     }
     ]
@@ -96,7 +98,7 @@ class AmapWeatherPlus(BaseTool):
     parameters = [{
         'name': 'location',
         'type': 'string',
-        'description': '城市/区具体名称，如`北京市海淀区`请描述为`海淀区`',
+        'description': '城市/区具体名称，默认值为`杭州市`；如`北京市海淀区`请描述为`海淀区`。**注意**如果是市名如`杭州`必须添加`市`后缀为`杭州市`',
         'required': True
     }]
 

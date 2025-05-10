@@ -11,13 +11,9 @@ class ASR:
         self.sample_rate = sample_rate
         self.format_pcm = format_pcm
         if self._detect_local():
-            self.provider = "本地"
-            print("use local asr")
-            self.asr = localASR(llm, sample_rate)
+            self._init_local()
         else:
-            self.provider = "百炼"
-            print("use ali asr")
-            self.asr = aliASR(llm, sample_rate, format_pcm)
+            self._init_bailian()
         self.asr_running = False
 
     def _detect_local(self):
@@ -27,23 +23,47 @@ class ASR:
         except:
             return False
 
+    def _init_local(self):
+        self.provider = "本地"
+        self.asr = localASR(self.llm, self.sample_rate)
+        print("use local asr")
+
+    def _init_bailian(self):
+        self.provider = "百炼"
+        self.asr = aliASR(self.llm, self.sample_rate, self.format_pcm)
+        print("use ali asr")
+
     def get_provider(self):
         return self.provider
+
+    def set_provider(self, provider):
+        if self.provider == provider:
+            return
+        self.stop()
+        if provider == "本地":
+            self._init_local()
+        elif provider == "百炼":
+            self._init_bailian()
+        else:
+            raise ValueError(f"unsupported provider {provider}")
 
     def is_local(self):
         return self.provider == "本地"
 
     def start(self):
+        if self.asr_running:
+            return
+        self.asr_running = True
         self.asr.start()
 
     def stop(self):
+        if not self.asr_running:
+            return
+        self.asr_running = False
         self.asr.stop()
 
     def send_audio_frame(self, data, is_finish=False):
-        if not self.asr_running:
-            self.asr_running = True
-            self.asr.start()
+        self.start()
         self.asr.send_audio_frame(data, is_finish)
         if is_finish:
-            self.asr_running = False
-            self.asr.stop()
+            self.stop()

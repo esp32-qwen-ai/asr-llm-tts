@@ -124,26 +124,9 @@ class LLM:
         self.history = deque(maxlen=LLM.MAX_HISTORY)
         self.asr = None
         if self._detect_local():
-            self.provider = "本地"
-            self.model = "qwen3:8b"
-            self.model_server = LLM.LOCAL_LLM_API
-            print("use local llm")
+            self._init_local()
         else:
-            self.provider = "百炼"
-            self.model = "qwen-plus"
-            self.model_server = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-            print("use ali llm")
-        self.llm_cfg = {
-            'model': self.model,
-            'model_server': self.model_server,
-            'api_key': os.getenv("DASHSCOPE_API_KEY"),
-            'generate_cfg': {
-                'temperature': 0.7,
-                'extra_body': {
-                    'enable_thinking': enable_thinking
-                }
-            },
-        }
+            self._init_bailian()
         self.bot = None
         self.need_exit_conversation = False
 
@@ -153,6 +136,18 @@ class LLM:
             return resp.status_code in [200, 404]
         except:
             return False
+
+    def _init_local(self):
+        self.provider = "本地"
+        self.model = "qwen3:8b"
+        self.model_server = LLM.LOCAL_LLM_API
+        print("use local llm")
+
+    def _init_bailian(self):
+        self.provider = "百炼"
+        self.model = "qwen3-235b-a22b"
+        self.model_server = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        print("use ali llm")
 
     @staticmethod
     def init_agent(asr, llm, tts):
@@ -168,6 +163,17 @@ class LLM:
     def get_provider(self):
         return self.provider
 
+    def set_provider(self, provider):
+        if self.provider == provider:
+            return
+        self.bot = None
+        if provider == "本地":
+            self._init_local()
+        elif provider == "百炼":
+            self._init_bailian()
+        else:
+            raise ValueError(f"unsupported provider {provider}")
+
     def is_local(self):
         return self.provider == "本地"
 
@@ -179,7 +185,18 @@ class LLM:
             self.history.popleft()
 
     def _init_bot(self):
-        self.bot = Assistant(llm=self.llm_cfg,
+        llm_cfg = {
+            'model': self.model,
+            'model_server': self.model_server,
+            'api_key': os.getenv("DASHSCOPE_API_KEY"),
+            'generate_cfg': {
+                'temperature': 0.7,
+                'extra_body': {
+                    'enable_thinking': self.enable_thinking
+                }
+            },
+        }
+        self.bot = Assistant(llm=llm_cfg,
                         function_list=LLM.TOOLS,
                         name='Qwen3 Tool-calling Demo',
                         system_message=LLM.PROMPT['content'],
@@ -253,7 +270,6 @@ class LLM:
 if __name__ == "__main__":
     import sys
     import os
-    import time
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
     from asr import ASR
     from tts import TTS
@@ -261,10 +277,12 @@ if __name__ == "__main__":
     llm = LLM(None)
     asr = ASR(llm, 16000)
     LLM.init_agent(asr, llm, tts)
+    llm.call("现在用的哪个provider")
+    llm.call("把所有模型都切换成百炼")
+    llm.call("用本地llm模型")
     llm.call("你好，杭州现在几点了，讲个100字冷笑话")
     llm.call("没事了，下次聊")
     llm.call("随便播放一首中文歌曲")
-    time.sleep(3)
     llm.call("现在在播放哪一首歌曲")
     llm.call("停止播放歌曲")
     llm.call("计算下 1 + 2")
@@ -279,5 +297,6 @@ if __name__ == "__main__":
     llm.call("还有几个小时过年？")
     llm.call("杭州今天下雨吗？明天会下雨吗？要不要穿外套")
     llm.call("当前使用的asr模型配置是什么")
+    llm.call("停止播放歌曲")
     llm.call("你好，杭州今天下雨吗？回答完之后就退出吧")
     llm.call("没其他问题了，退下吧")

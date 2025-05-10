@@ -9,13 +9,9 @@ class TTS:
     def __init__(self, conn):
         self.conn = conn
         if self._detect_local():
-            self.provider = "本地"
-            print("use local tts")
-            self.tts = localTTS(conn)
+            self._init_local()
         else:
-            self.provider = "百炼"
-            print("use ali tts")
-            self.tts = aliTTS(conn)
+            self._init_bailian()
 
     def set_connection(self, conn):
         self.conn = conn
@@ -28,8 +24,28 @@ class TTS:
         except:
             return False
 
+    def _init_local(self):
+        self.provider = "本地"
+        self.tts = localTTS(self.conn)
+        print("use local tts")
+
+    def _init_bailian(self):
+        self.provider = "百炼"
+        self.tts = aliTTS(self.conn)
+        print("use ali tts")
+
     def get_provider(self):
         return self.provider
+
+    def set_provider(self, provider):
+        if self.provider == provider:
+            return
+        if provider == "本地":
+            self._init_local()
+        elif provider == "百炼":
+            self._init_bailian()
+        else:
+            raise ValueError(f"unsupported provider {provider}")
 
     def is_local(self):
         return self.provider == "本地"
