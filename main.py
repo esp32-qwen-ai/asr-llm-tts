@@ -1,12 +1,12 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import socket
 from lib.asr import ASR
 from lib.llm import LLM
 from lib.tts import TTS
 import struct
 import json
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # 配置服务器地址和端口
 HOST = '0.0.0.0'  # 所有可用的网络接口

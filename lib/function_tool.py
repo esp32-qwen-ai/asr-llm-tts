@@ -1,7 +1,9 @@
 import json
-import requests
+import os
+from typing import Dict, Optional, Union
 
 from qwen_agent.tools.base import BaseTool, register_tool
+import requests
 
 @register_tool('get_model_config')
 class GetModelConfig(BaseTool):
@@ -9,6 +11,8 @@ class GetModelConfig(BaseTool):
     parameters = []
 
     def __init__(self, config):
+        super().__init__(config)
+
         self.asr = config["args"]["asr"]
         self.llm = config["args"]["llm"]
         self.tts = config["args"]["tts"]
@@ -56,6 +60,8 @@ class SetModelConfig(BaseTool):
     ]
 
     def __init__(self, config):
+        super().__init__(config)
+
         self.asr = config["args"]["asr"]
         self.llm = config["args"]["llm"]
         self.tts = config["args"]["tts"]
@@ -82,3 +88,61 @@ class SetModelConfig(BaseTool):
         else:
             raise ValueError(f"unsupport config_service {p['config_service']}")
         return f'config done: {p["config_service"]}, {p["config_key"]}, {p["config_value"]}'
+
+# like 'amap_weather' but return 4 days
+@register_tool('amap_weather_plus')
+class AmapWeatherPlus(BaseTool):
+    description = '获取对应城市的天气数据'
+    parameters = [{
+        'name': 'location',
+        'type': 'string',
+        'description': '城市/区具体名称，如`北京市海淀区`请描述为`海淀区`',
+        'required': True
+    }]
+
+    def __init__(self, cfg: Optional[Dict] = None):
+        super().__init__(cfg)
+
+        # remote call
+        self.url = 'https://restapi.amap.com/v3/weather/weatherInfo?city={city}&key={key}&extensions=all'
+
+        import pandas as pd
+        self.city_df = pd.read_excel(
+            'https://modelscope.oss-cn-beijing.aliyuncs.com/resource/agent/AMap_adcode_citycode.xlsx')
+
+        self.token = self.cfg.get('token', os.environ.get('AMAP_TOKEN', ''))
+        assert self.token != '', 'weather api token must be acquired through ' \
+            'https://lbs.amap.com/api/webservice/guide/create-project/get-key and set by AMAP_TOKEN'
+
+    def get_city_adcode(self, city_name):
+        filtered_df = self.city_df[self.city_df['中文名'] == city_name]
+        if len(filtered_df['adcode'].values) == 0:
+            raise ValueError(f'location {city_name} not found, availables are {self.city_df["中文名"]}')
+        else:
+            return filtered_df['adcode'].values[0]
+
+    def call(self, params: Union[str, dict], **kwargs) -> str:
+        params = self._verify_json_format_args(params)
+
+        location = params['location']
+        response = requests.get(self.url.format(city=self.get_city_adcode(location), key=self.token))
+        data = response.json()
+        if data['status'] == '0':
+            raise RuntimeError(data)
+        else:
+            return json.dumps(data, indent=2)
+
+@register_tool('exit_conversation')
+class ExitConversation(BaseTool):
+    description = "当你识别到用户表达告别意图时主动且必须调用这个函数"
+    parameters = []
+
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.asr = config["args"]["asr"]
+        self.llm = config["args"]["llm"]
+        self.tts = config["args"]["tts"]
+
+    def call(self, params: str, *args, **kwargs) -> str:
+        self.llm.exit_conversation()

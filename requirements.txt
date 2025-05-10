@@ -4,3 +4,4 @@ openai
 requests
 qwen-agent[rag,code_interpreter,gui,mcp]
 python-dateutil
+openpyxl
