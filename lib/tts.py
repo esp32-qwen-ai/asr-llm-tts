@@ -4,6 +4,25 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from local_tts import TTS as localTTS
 from ali_tts import TTS as aliTTS
+import numpy as np
+
+def adjust_volume(pcm_data, volume=None):
+    def calculate_safe_gain(data):
+        max_val = np.max(np.abs(data))
+        if max_val == 0: return 1  # 防止除以0
+        return np.iinfo(np.int16).max / max_val
+
+    data = np.frombuffer(pcm_data, dtype=np.int16)
+    volume_factor = volume / 50.
+
+    if volume_factor is None:
+        volume_factor = calculate_safe_gain(data)  # 如果未指定增益因子，则自动计算一个安全的最大增益
+    adjusted_pcm = data * volume_factor
+    max_int16 = np.iinfo(np.int16).max
+    min_int16 = np.iinfo(np.int16).min
+    adjusted_pcm_clipped = np.clip(adjusted_pcm, min_int16, max_int16)
+
+    return adjusted_pcm_clipped.astype(np.int16).tobytes()
 
 class TTS:
     def __init__(self, conn):
@@ -58,6 +77,12 @@ class TTS:
 
     def set_spk_id(self, spk_id):
         self.tts.set_spk_id(spk_id)
+
+    def get_volume(self):
+        return self.tts.get_volume()
+
+    def set_volume(self, volume):
+        self.tts.set_volume(volume)
 
     def call(self, data):
         self.tts.call(data)

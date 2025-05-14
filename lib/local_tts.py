@@ -9,6 +9,7 @@ class TTS:
         self.conn = conn
         self.spk_id = "chelsie"
         self.spk_id_support = requests.get(f"{TTS.LOCAL_TTS_API}/list_spk").json()
+        self.volume = 50
 
     def set_connection(self, conn):
         self.conn = conn
@@ -24,16 +25,24 @@ class TTS:
     def get_spk_id_support(self):
         return self.spk_id_support
 
+    def get_volume(self):
+        return self.volume
+
+    def set_volume(self, volume):
+        self.volume = volume
+
     def call(self, text):
+        from tts import adjust_volume
         resp = requests.post(f"{TTS.LOCAL_TTS_API}/tts", json={
             "text": text,
             "spk_id": self.spk_id,
         }, stream=True)
-        for chunk in resp.iter_content(chunk_size=4096):
+        for pcm_data in resp.iter_content(chunk_size=4096):
             if not self.conn:
-                print(len(chunk))
+                print(len(pcm_data))
                 continue
-            self.conn.send(chunk, False)
+            pcm_data = adjust_volume(pcm_data, self.volume)
+            self.conn.send(pcm_data, False)
 
 if __name__ == "__main__":
     tts = TTS(None)

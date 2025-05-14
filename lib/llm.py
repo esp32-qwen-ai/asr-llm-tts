@@ -114,13 +114,17 @@ class LLM:
             'name': 'exit_conversation',
             'args': {}
         },
+        {
+            'name': 'tts_volume',
+            'args': {}
+        },
         'amap_weather_plus',
         'web_search',
         'web_extractor',
         'code_interpreter',  # Built-in tools
     ]
 
-    def __init__(self, tts, enable_thinking=True):
+    def __init__(self, tts, enable_thinking=False):
         self.tts = tts
         self.enable_thinking = enable_thinking
         self.history = deque(maxlen=LLM.MAX_HISTORY)
@@ -157,7 +161,7 @@ class LLM:
     def init_agent(asr, llm, tts):
         for item in LLM.TOOLS:
             if isinstance(item, dict) and item.get("name", None):
-                if item["name"] in ("get_model_config", "set_model_config", "exit_conversation"):
+                if item["name"] in ("get_model_config", "set_model_config", "exit_conversation", "tts_volume"):
                     item["args"] = {
                         "asr": asr,
                         "llm": llm,

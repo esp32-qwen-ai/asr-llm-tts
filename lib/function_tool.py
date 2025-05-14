@@ -148,3 +148,33 @@ class ExitConversation(BaseTool):
 
     def call(self, params: str, *args, **kwargs) -> str:
         self.llm.exit_conversation()
+
+@register_tool('tts_volume')
+class TTSVolume(BaseTool):
+    description = "当需要查询或调整音量大小时这个函数非常有用"
+    parameters = [{
+        'name': 'operate',
+        'type': 'string',
+        'description': '操作类型，合法值为`get`或`set`',
+        'required': True
+    },
+    {
+        'name': 'volume',
+        'type': 'int',
+        'description': '当调整音量时需要传递这个参数，合法值在0到100之间的整数',
+        'required': False
+    }]
+
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.asr = config["args"]["asr"]
+        self.llm = config["args"]["llm"]
+        self.tts = config["args"]["tts"]
+
+    def call(self, params: str, *args, **kwargs) -> str:
+        params = self._verify_json_format_args(params)
+        if params["operate"] == "get":
+            return self.tts.get_volume()
+        elif params["operate"] == "set":
+            self.tts.set_volume(params["volume"])
