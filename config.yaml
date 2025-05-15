@@ -1,0 +1,25 @@
+main:
+  # required
+  host: "0.0.0.0"
+  # required
+  port: 3000
+  # required
+  kws: "hellohello"
+
+asr:
+  # optional
+  provider: "本地"
+
+llm:
+  # optional
+  provider: "本地"
+  # optional
+  enable_thinking: False
+
+tts:
+  # optional
+  provider: "本地"
+  # optional
+  spk_id: "huamulan"
+  # optional
+  volume: 10

@@ -8,11 +8,7 @@ from lib.tts import TTS
 import struct
 import json
 import webrtcvad
-import numpy as np
-
-# 配置服务器地址和端口
-HOST = '0.0.0.0'  # 所有可用的网络接口
-PORT = 3000       # 任意端口（确保未被占用）
+import yaml
 
 class Vad:
     def __init__(self, sample_rate=16000, frame_duration_ms=30, threshold=0.1):
@@ -133,7 +129,7 @@ class Connection:
     DECODE_HEADER = 0
     DECODE_PAYLOAD = 1
 
-    def __init__(self, s, asr, llm, tts, pcm_chunk_size=9600*2):
+    def __init__(self, s, asr, llm, tts, pcm_chunk_size=9600*2, config=None):
         self.socket = s
         self.asr = asr
         self.llm = llm
@@ -143,7 +139,8 @@ class Connection:
         self.decode_state = Connection.DECODE_HEADER
         self.pcm_chunk_size = pcm_chunk_size
         self.pending_pcm = b''
-        self.kws = KWS(asr)
+        self.config = config
+        self.kws = KWS(asr, kw=config["main"].get("kws", "hellohello"))
 
     def recv(self, size):
         return self.socket.recv(size)
@@ -216,15 +213,25 @@ class Connection:
             self.asr.send_audio_frame(self.pending_pcm[0:self.pcm_chunk_size], is_finish and (len(self.pending_pcm) <= self.pcm_chunk_size))
             self.pending_pcm = self.pending_pcm[self.pcm_chunk_size:]
 
+def load_config(fpath="config.yaml"):
+    with open(fpath, 'r') as f:
+        buf = f.read()
+    config = yaml.safe_load(buf)
+    print(json.dumps(config, indent=2, ensure_ascii=False))
+    return config
+
 def main():
+    config = load_config()
+    host = config["main"]["host"]
+    port = config["main"]["port"]
     # 创建 socket 对象 (IPv4, TCP)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         # 设置端口复用（便于快速重启）
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # 绑定地址和端口
-        server_socket.bind((HOST, PORT))
-        print(f"Server is listening on {HOST}:{PORT}...")
+        server_socket.bind((host, port))
+        print(f"Server is listening on {host}:{port}...")
 
         # 开始监听，最大等待连接数为 1
         server_socket.listen(1)
@@ -238,14 +245,14 @@ def main():
                 print(f"Connected by {addr}")
 
                 # pcm(wav) -> asr(text) -> llm(text) -> tts(speech) -> socket
-                tts = TTS(None)
-                llm = LLM(tts)
-                asr = ASR(llm, 16000)
+                tts = TTS(None, config)
+                llm = LLM(tts, config)
+                asr = ASR(llm, config)
 
                 # for agent
                 LLM.init_agent(asr, llm, tts)
 
-                conn = Connection(client_socket, asr, llm, tts)
+                conn = Connection(client_socket, asr, llm, tts, config=config)
                 tts.set_connection(conn)
 
                 while True:

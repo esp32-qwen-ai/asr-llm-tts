@@ -5,11 +5,15 @@ class TTS:
     LOCAL_TTS_API = os.getenv("LOCAL_TTS_API")
     LOCAL_TTS_API_PING = os.getenv("LOCAL_TTS_API") + "/ping"
 
-    def __init__(self, conn):
+    def __init__(self, conn, config=None):
         self.conn = conn
-        self.spk_id = "chelsie"
+        self.config = config
+        self.spk_id = self.config["tts"].get("spk_id", "chelsie")
         self.spk_id_support = requests.get(f"{TTS.LOCAL_TTS_API}/list_spk").json()
-        self.volume = 50
+        if self.spk_id not in self.spk_id_support:
+            print(f"invalid spk_id {self.spk_id}, change to {self.spk_id_support[0]}")
+            self.spk_id = self.spk_id_support[0]
+        self.volume = self.config["tts"].get("volume", 30)
 
     def set_connection(self, conn):
         self.conn = conn

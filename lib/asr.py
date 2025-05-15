@@ -6,8 +6,9 @@ from local_asr import ASR as localASR
 from ali_asr import ASR as aliASR
 
 class ASR:
-    def __init__(self, llm, sample_rate=8000, format_pcm='pcm'):
+    def __init__(self, llm, config=None, sample_rate=16000, format_pcm='pcm'):
         self.llm = llm
+        self.config = config
         self.sample_rate = sample_rate
         self.format_pcm = format_pcm
         if self._detect_local():
@@ -17,6 +18,10 @@ class ASR:
         self.asr_running = False
 
     def _detect_local(self):
+        if self.config:
+            provider = self.config["asr"].get("provider", "")
+            if provider != "本地":
+                return False
         try:
             resp = requests.get(localASR.LOCAL_ASR_API_PING, timeout=0.5)
             return resp.status_code == 200
@@ -41,11 +46,15 @@ class ASR:
             return
         self.stop()
         if provider == "本地":
+            if not self._detect_local():
+                raise ValueError(f"local provider not ready")
             self._init_local()
         elif provider == "百炼":
             self._init_bailian()
         else:
             raise ValueError(f"unsupported provider {provider}")
+
+        self.config["asr"]["provider"] = provider
 
     def is_local(self):
         return self.provider == "本地"

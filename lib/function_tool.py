@@ -161,7 +161,7 @@ class TTSVolume(BaseTool):
     {
         'name': 'volume',
         'type': 'int',
-        'description': '当调整音量时需要传递这个参数，合法值在0到100之间的整数',
+        'description': '当调整音量时需要传递这个参数，合法值在0到100之间的整数。建议：先获取当前值，再根据需要调整',
         'required': False
     }]
 

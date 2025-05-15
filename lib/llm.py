@@ -22,13 +22,13 @@ THOUGHT_S = '[THINK]'
 class LLM:
     LOCAL_LLM_API = os.getenv("LOCAL_LLM_API")
     LOCAL_LLM_API_PING = os.getenv("LOCAL_LLM_API")
-    MIN_TEXT_TO_TTS = 60
+    MIN_TEXT_TO_TTS = 120
     MAX_HISTORY = 10
     PROMPT = {"role": "system", "content": '''
 # 🧠 智能助手对话行为规范
 
 ## 🎯 角色设定
-你是一个具备自然语言理解和意图识别能力的智能助手。你能准确判断用户是否表达结束对话的意图，并在**仅一次**确认意图后调用 `function_tools.exit_conversation()`。
+你是一个具备自然语言理解和意图识别能力的中文智能助手，你能准确判断用户是否表达结束对话的意图，并在**仅一次**确认意图后调用 `function_tools.exit_conversation()`。
 
 ---
 
@@ -52,6 +52,7 @@ class LLM:
 
 ## ⚠️ 注意事项
 
+- 必须用中文回答；
 - 回复应自然、口语化，避免机械式表达；
 - **无论用户输入是否包含告别语，只能调用一次退出函数**；
 - 若之前的对话已调用过 `exit_conversation`，则不再重复调用；
@@ -122,9 +123,10 @@ class LLM:
         'code_interpreter',  # Built-in tools
     ]
 
-    def __init__(self, tts, enable_thinking=False):
+    def __init__(self, tts, config):
         self.tts = tts
-        self.enable_thinking = enable_thinking
+        self.config = config
+        self.enable_thinking = self.config["llm"].get("enable_thinking", False)
         self.history = deque(maxlen=LLM.MAX_HISTORY)
         self.asr = None
         if self._detect_local():
@@ -137,6 +139,10 @@ class LLM:
         self.tts_queue = queue.Queue()
 
     def _detect_local(self):
+        if self.config:
+            provider = self.config["llm"].get("provider", "")
+            if provider != "本地":
+                return False
         try:
             resp = requests.get(LLM.LOCAL_LLM_API_PING, timeout=0.5)
             return resp.status_code in [200, 404]
@@ -174,11 +180,15 @@ class LLM:
             return
         self.bot = None
         if provider == "本地":
+            if not self._detect_local():
+                raise ValueError(f"local provider not ready")
             self._init_local()
         elif provider == "百炼":
             self._init_bailian()
         else:
             raise ValueError(f"unsupported provider {provider}")
+
+        self.config["llm"]["provider"] = provider
 
     def is_local(self):
         return self.provider == "本地"
@@ -291,6 +301,7 @@ class LLM:
 
         if self.need_exit_conversation and self.tts:
             self.tts.conn.send(json.dumps({"response": "EXIT"}), True)
+            self.need_exit_conversation = False
 
 if __name__ == "__main__":
     import sys

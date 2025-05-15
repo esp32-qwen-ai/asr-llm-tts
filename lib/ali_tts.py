@@ -4,13 +4,17 @@ import dashscope
 import base64
 
 class TTS:
-    def __init__(self, conn, model="qwen-tts"):
+    def __init__(self, conn, config=None, model="qwen-tts"):
         self.conn = conn
+        self.config = config
         self.model = model
         self.api_key = os.getenv('DASHSCOPE_API_KEY')
-        self.spk_id = "Chelsie"
+        self.spk_id = self.config["tts"].get("spk_id", "Chelsie")
         self.spk_id_support = ["Chelsie", "Cherry", "Serena"]
-        self.volume = 50
+        if self.spk_id not in self.spk_id_support:
+            print(f"invalid spk_id {self.spk_id}, change to {self.spk_id_support[0]}")
+            self.spk_id = self.spk_id_support[0]
+        self.volume = self.config["tts"].get("volume", 30)
 
     def set_connection(self, conn):
         self.conn = conn
@@ -21,6 +25,7 @@ class TTS:
     def set_spk_id(self, spk_id):
         if spk_id not in self.spk_id_support:
             raise ValueError(f"unsupport spk_id {spk_id}")
+        self.config["tts"]["spk_id"] = spk_id
         self.spk_id = spk_id
 
     def get_spk_id_support(self):
@@ -30,6 +35,7 @@ class TTS:
         return self.volume
 
     def set_volume(self, volume):
+        self.config["tts"]["volume"] = volume
         self.volume = volume
 
     def call(self, text):
