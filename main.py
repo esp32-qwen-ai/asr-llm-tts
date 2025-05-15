@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 
 import socket
 from lib.asr import ASR
@@ -7,10 +7,54 @@ from lib.llm import LLM
 from lib.tts import TTS
 import struct
 import json
+import webrtcvad
+import numpy as np
 
 # 配置服务器地址和端口
 HOST = '0.0.0.0'  # 所有可用的网络接口
 PORT = 3000       # 任意端口（确保未被占用）
+
+class Vad:
+    def __init__(self, sample_rate=16000, frame_duration_ms=30, threshold=0.1):
+        self.sample_rate = sample_rate
+        self.frame_duration_ms = frame_duration_ms
+        self.threshold = threshold
+        self.vad = webrtcvad.Vad()
+        self.vad.set_mode(2)  # 0~3，3最严格
+
+    def is_speech(self, pcm_data):
+        frame_size = int(self.sample_rate * self.frame_duration_ms / 1000) * 2  # 16位 = 2字节
+        frames = [pcm_data[i:i+frame_size] for i in range(0, len(pcm_data), frame_size)]
+        speech_frames = 0
+        for frame in frames:
+            if len(frame) < frame_size:
+                continue
+            if self.vad.is_speech(frame, sample_rate=self.sample_rate):
+                speech_frames += 1
+        return speech_frames / len(frames) >= self.threshold
+
+class KWS:
+    def __init__(self, asr, kw="hellohello"):
+        self.asr = asr
+        self.kw = kw
+        self.wakeup = False
+        self.vad = Vad()
+
+    def is_wakeup(self, pcm):
+        if self.wakeup:
+            return True
+        if not self.vad.is_speech(pcm):
+            return False
+        text = self.asr.convert_text(pcm)
+        text = text.replace(" ", "").replace(",", "").replace("，", "")
+        if self.kw in text:
+            print("--- WAKEUP ---")
+            self.wakeup = True
+            return True
+
+    def exit(self):
+        print("--- SLEEP ---")
+        self.wakeup = False
 
 class Request:
     HEADER_SIZE = 8
@@ -99,6 +143,7 @@ class Connection:
         self.decode_state = Connection.DECODE_HEADER
         self.pcm_chunk_size = pcm_chunk_size
         self.pending_pcm = b''
+        self.kws = KWS(asr)
 
     def recv(self, size):
         return self.socket.recv(size)
@@ -120,6 +165,8 @@ class Connection:
                 j = json.loads(data)
                 if j["response"] == "EXIT":
                     resp.type = Response.EXIT_CHAT
+                    self.kws.exit()
+                    return
             except:
                 pass
         self.socket.sendall(resp.to_bytes())
@@ -162,6 +209,9 @@ class Connection:
             self.send(b'', True)
 
     def process_pcm(self, is_finish):
+        if not self.kws.is_wakeup(self.pending_pcm):
+            self.pending_pcm = b''
+            return
         while len(self.pending_pcm) > 0:
             self.asr.send_audio_frame(self.pending_pcm[0:self.pcm_chunk_size], is_finish and (len(self.pending_pcm) <= self.pcm_chunk_size))
             self.pending_pcm = self.pending_pcm[self.pcm_chunk_size:]

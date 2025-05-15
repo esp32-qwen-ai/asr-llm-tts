@@ -88,10 +88,9 @@ class LLM:
                 'windows': {
                     'url': 'http://win.lan:8000/sse'
                 },
-                # 'fetch': {
-                #     'command': 'uvx',
-                #     'args': ['mcp-server-fetch']
-                # },
+                "amap-amap-sse": {
+                    "url": f"https://mcp.amap.com/sse?key={os.getenv('AMAP_TOKEN')}"
+                }
                 # "memory": {
                 #     "command": "npx",
                 #     "args": ["-y", "@modelcontextprotocol/server-memory"]
@@ -118,7 +117,6 @@ class LLM:
             'name': 'tts_volume',
             'args': {}
         },
-        'amap_weather_plus',
         'web_search',
         'web_extractor',
         'code_interpreter',  # Built-in tools

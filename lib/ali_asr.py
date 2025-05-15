@@ -1,5 +1,7 @@
 import dashscope
 from dashscope.audio.asr import *
+import queue
+import threading
 
 # Real-time speech recognition callback
 class Callback(RecognitionCallback):
@@ -35,6 +37,27 @@ class Callback(RecognitionCallback):
                     % (result.get_request_id(), result.get_usage(sentence)))
                 self.text += sentence['text']
 
+class SyncCallback(RecognitionCallback):
+    def __init__(self, queue):
+        self.queue = queue
+        self.text = ""
+
+    def on_complete(self) -> None:
+        self.queue.put(self.text)
+        self.text = ""
+
+    def on_event(self, result: RecognitionResult) -> None:
+        sentence = result.get_sentence()
+        # print(result.get_request_id(), result.get_usage(sentence))
+        if 'text' in sentence:
+            print('RecognitionCallback text: ', sentence['text'])
+            eof=RecognitionResult.is_sentence_end(sentence)
+            if eof:
+                print(
+                    'RecognitionCallback sentence end, request_id:%s, usage:%s'
+                    % (result.get_request_id(), result.get_usage(sentence)))
+                self.text += sentence['text']
+
 class ASR:
     def __init__(self, llm, sample_rate=8000, format_pcm='pcm'):
         self.llm = llm
@@ -52,6 +75,18 @@ class ASR:
             semantic_punctuation_enabled=False,
             callback=self.callback)
 
+        self.sync_queue = queue.Queue()
+        self.sync_callback = SyncCallback(self.sync_queue)
+        self.sync_recognition = Recognition(
+            model='paraformer-realtime-v2',
+            # 'paraformer-realtime-v1'、'paraformer-realtime-8k-v1'
+            format=format_pcm,
+            # 'pcm'、'wav'、'opus'、'speex'、'aac'、'amr', you can check the supported formats in the document
+            sample_rate=sample_rate,
+            # support 8000, 16000
+            semantic_punctuation_enabled=False,
+            callback=self.sync_callback)
+
     def start(self):
         self.recognition.start()
     
@@ -61,6 +96,12 @@ class ASR:
     def send_audio_frame(self, data, is_finish=False):
         # send audio data to recognition service
         self.recognition.send_audio_frame(data)
+
+    def convert_text(self, data):
+        self.sync_recognition.start()
+        self.sync_recognition.send_audio_frame(data)
+        self.sync_recognition.stop()
+        return self.sync_queue.get()
 
 if __name__ == '__main__':
     asr = ASR(None, format_pcm = 'pcm')

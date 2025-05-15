@@ -29,3 +29,11 @@ class ASR:
         if is_finish:
             self.llm.call(self.text)
             self.text = ""
+
+    def convert_text(self, data):
+        resp = requests.post(f"{ASR.LOCAL_ASR_API}/asr", json={
+            "pcm": base64.b64encode(data).decode("utf-8"),
+            "sample_rate": self.sample_rate,
+            "is_finish": True
+        })
+        return resp.text.strip()

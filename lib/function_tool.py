@@ -7,7 +7,7 @@ import requests
 
 @register_tool('get_model_config')
 class GetModelConfig(BaseTool):
-    description = '当你想查询当前运行的asr，llm，tts模型服务配置时非常有用。'
+    description = '当你想查询当前运行的asr，llm，tts（包含语音列表）模型服务配置时非常有用。'
     parameters = []
 
     def __init__(self, config):
@@ -38,7 +38,7 @@ class GetModelConfig(BaseTool):
 
 @register_tool('set_model_config')
 class SetModelConfig(BaseTool):
-    description = '当你想修改当前运行的asr，llm，tts模型服务配置时非常有用。'
+    description = '当你想修改当前运行的asr，llm，tts（包含语音切换）模型服务配置时非常有用。'
     parameters = [{
         'name': 'config_service',
         'type': 'string',

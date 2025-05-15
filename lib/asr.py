@@ -67,3 +67,6 @@ class ASR:
         self.asr.send_audio_frame(data, is_finish)
         if is_finish:
             self.stop()
+
+    def convert_text(self, data):
+        return self.asr.convert_text(data)
