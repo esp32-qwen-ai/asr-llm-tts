@@ -32,7 +32,7 @@ class Vad:
 class KWS:
     def __init__(self, asr, kw="hellohello"):
         self.asr = asr
-        self.kw = kw
+        self.kw = kw.lower()
         self.wakeup = False
         self.vad = Vad()
 
@@ -42,7 +42,7 @@ class KWS:
         if not self.vad.is_speech(pcm):
             return False
         text = self.asr.convert_text(pcm)
-        text = text.replace(" ", "").replace(",", "").replace("，", "")
+        text = text.replace(" ", "").replace(",", "").replace("，", "").lower()
         if self.kw in text:
             print("--- WAKEUP ---")
             self.wakeup = True
