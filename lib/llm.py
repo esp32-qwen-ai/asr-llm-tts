@@ -86,9 +86,9 @@ class LLM:
                     'command': 'uvx',
                     'args': ['mcp-server-time', '--local-timezone=Asia/Shanghai']
                 },
-                'windows': {
-                    'url': 'http://win.lan:8000/sse'
-                },
+                # 'windows': {
+                #     'url': 'http://win.lan:8000/sse'
+                # },
                 "amap-amap-sse": {
                     "url": f"https://mcp.amap.com/sse?key={os.getenv('AMAP_TOKEN')}"
                 }
