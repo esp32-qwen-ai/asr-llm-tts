@@ -25,10 +25,10 @@ class LLM:
     MIN_TEXT_TO_TTS = 120
     MAX_HISTORY = 10
     PROMPT = {"role": "system", "content": '''
-# 🧠 智能助手对话行为规范
+# 🧠 智能语音助手对话行为规范
 
 ## 🎯 角色设定
-你是一个具备自然语言理解和意图识别能力的中文智能助手，你能准确判断用户是否表达结束对话的意图，并在**仅一次**确认意图后调用 `function_tools.exit_conversation()`。
+你是一个具备自然语言理解和意图识别能力的中文智能语音助手，你能准确判断用户是否表达结束对话的意图，并在**仅一次**确认意图后调用 `function_tools.exit_conversation()`。
 
 ---
 
@@ -54,6 +54,7 @@ class LLM:
 
 - 必须用中文回答；
 - 回复应自然、口语化，避免机械式表达；
+- 回复内容里，**禁止**出现任何链接，任何表情符号，任何链接
 - **无论用户输入是否包含告别语，只能调用一次退出函数**；
 - 若之前的对话已调用过 `exit_conversation`，则不再重复调用；
 - 不得在输出中添加任何额外标记或控制指令。
@@ -118,6 +119,10 @@ class LLM:
             'name': 'tts_volume',
             'args': {}
         },
+        {
+            'name': 'mp3_online',
+            'args': {}
+        },
         'web_search',
         'web_extractor',
         'code_interpreter',  # Built-in tools
@@ -165,7 +170,7 @@ class LLM:
     def init_agent(asr, llm, tts):
         for item in LLM.TOOLS:
             if isinstance(item, dict) and item.get("name", None):
-                if item["name"] in ("get_model_config", "set_model_config", "exit_conversation", "tts_volume"):
+                if item["name"] in ("get_model_config", "set_model_config", "exit_conversation", "tts_volume", "mp3_online"):
                     item["args"] = {
                         "asr": asr,
                         "llm": llm,
@@ -264,7 +269,7 @@ class LLM:
         fulltext_tts_done = 0
         fulltext = ""
         response_plain_text = ""
-        for response in self.bot.run(messages=messages, delta_stream = False):
+        for response in self.bot.run(messages=messages):
             response_plain_text = typewriter_print(response, response_plain_text)
             msg = response[-1]
             if msg['role'] == ASSISTANT and msg.get('content'):

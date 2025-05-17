@@ -14,7 +14,7 @@ llm:
   # optional
   provider: "本地"
   # optional
-  enable_thinking: False
+  enable_thinking: false
 
 tts:
   # optional
