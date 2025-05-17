@@ -134,24 +134,24 @@ class LLM:
         self.enable_thinking = self.config["llm"].get("enable_thinking", False)
         self.history = deque(maxlen=LLM.MAX_HISTORY)
         self.asr = None
-        if self._detect_local():
+
+        provider = self.config["llm"].get("provider", "")
+        if provider == "本地" and self._detect_local():
             self._init_local()
         else:
             self._init_bailian()
+
         self.bot = None
         self.need_exit_conversation = False
         self.tts_thread = None
         self.tts_queue = queue.Queue()
 
     def _detect_local(self):
-        if self.config:
-            provider = self.config["llm"].get("provider", "")
-            if provider != "本地":
-                return False
         try:
             resp = requests.get(LLM.LOCAL_LLM_API_PING, timeout=0.5)
             return resp.status_code in [200, 404]
-        except:
+        except Exception as ex:
+            print(ex)
             return False
 
     def _init_local(self):
@@ -309,14 +309,23 @@ class LLM:
             self.need_exit_conversation = False
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
     import sys
     import os
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
     from asr import ASR
     from tts import TTS
-    tts = TTS(None)
-    llm = LLM(None)
-    asr = ASR(llm, 16000)
+    import yaml
+    with open("config.yaml", 'r') as f:
+        buf = f.read()
+    config = yaml.safe_load(buf)
+    print(json.dumps(config, indent=2, ensure_ascii=False))
+    LLM.LOCAL_LLM_API = os.getenv("LOCAL_LLM_API")
+    LLM.LOCAL_LLM_API_PING = os.getenv("LOCAL_LLM_API")
+    tts = TTS(None, config)
+    llm = LLM(None, config)
+    asr = ASR(llm, config)
     LLM.init_agent(asr, llm, tts)
     llm.call("现在用的哪个provider")
     llm.call("把所有模型都切换成百炼")

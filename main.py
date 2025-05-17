@@ -263,6 +263,7 @@ def main():
                     conn.process(data)
             except Exception as e:
                 # raise
+                print(e)
                 if client_socket:
                     client_socket.close()
                     client_socket = None

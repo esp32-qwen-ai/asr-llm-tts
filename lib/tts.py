@@ -27,7 +27,8 @@ class TTS:
     def __init__(self, conn, config=None):
         self.conn = conn
         self.config = config
-        if self._detect_local():
+        provider = self.config["tts"].get("provider", "")
+        if provider == "本地" and self._detect_local():
             self._init_local()
         else:
             self._init_bailian()
@@ -37,10 +38,6 @@ class TTS:
         self.tts.set_connection(conn)
 
     def _detect_local(self):
-        if self.config:
-            provider = self.config["tts"].get("provider", "")
-            if provider != "本地":
-                return False
         try:
             resp = requests.get(localTTS.LOCAL_TTS_API_PING, timeout=0.5)
             return resp.status_code == 200

@@ -15,8 +15,6 @@ llm:
   provider: "本地"
   # optional
   enable_thinking: false
-  # optional
-  model: "qwen3:8b"
 
 tts:
   # optional

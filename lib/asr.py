@@ -11,17 +11,14 @@ class ASR:
         self.config = config
         self.sample_rate = sample_rate
         self.format_pcm = format_pcm
-        if self._detect_local():
+        provider = self.config["asr"].get("provider", "")
+        if provider == "本地" and self._detect_local():
             self._init_local()
         else:
             self._init_bailian()
         self.asr_running = False
 
     def _detect_local(self):
-        if self.config:
-            provider = self.config["asr"].get("provider", "")
-            if provider != "本地":
-                return False
         try:
             resp = requests.get(localASR.LOCAL_ASR_API_PING, timeout=0.5)
             return resp.status_code == 200
