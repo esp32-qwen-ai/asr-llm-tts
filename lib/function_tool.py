@@ -188,7 +188,7 @@ class TTSVolume(BaseTool):
 
 @register_tool('mp3_online')
 class MP3Online(BaseTool):
-    description = "在线搜索和播放音乐。`注意`：禁止将歌曲链接展示给用户"
+    description = "在线搜索和播放音乐。`注意`：禁止将歌曲url链接展示给用户"
     parameters = [{
         'name': 'recommend',
         'type': 'int',

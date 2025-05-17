@@ -68,6 +68,9 @@ class Request:
 
         self.data = b''
 
+    def __str__(self):
+        return f"magic: {self.magic}, type: {self.type}, eof: {self.eof}, dummy: {self.dummy}, length: {self.length}, data: {len(self.data)}"
+
     @classmethod
     def from_bytes(cls, data: bytes):
         req = cls()
@@ -103,6 +106,9 @@ class Response:
         self.length = 0             # 2字节长度
 
         self.data = b''
+
+    def __str__(self):
+        return f"magic: {self.magic}, type: {self.type}, eof: {self.eof}, is_local: {self.is_local}, length: {self.length}, data: {len(self.data)}"
 
     @classmethod
     def from_bytes(cls, data: bytes):
@@ -143,7 +149,10 @@ class Connection:
         self.kws = KWS(asr, kw=config["main"].get("kws", "hellohello"))
 
     def recv(self, size):
-        return self.socket.recv(size)
+        self.socket.settimeout(5.0)
+        ret = self.socket.recv(size)
+        self.socket.settimeout(None)
+        return ret
 
     def send(self, data, eof=0):
         resp = Response()
@@ -166,6 +175,7 @@ class Connection:
                     return
             except:
                 pass
+        # print(resp)
         self.socket.sendall(resp.to_bytes())
 
     def process(self, data):

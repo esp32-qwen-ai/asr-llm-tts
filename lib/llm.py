@@ -231,15 +231,19 @@ class LLM:
         if self.tts_thread:
             return
         def tts_process(q):
-            while True:
-                text = q.get()
-                if not text:
-                    break
-                if self.tts:
-                    if text.strip():
-                        self.tts.call(text)
-                else:
-                    print(f"\n--> tts: >>>>{text}<<<<")
+            try:
+                while True:
+                    text = q.get()
+                    if not text:
+                        break
+                    if self.tts:
+                        if text.strip():
+                            self.tts.call(text)
+                    else:
+                        print(f"\n--> tts: >>>>{text}<<<<")
+            except Exception as e:
+                print(e)
+
         self.tts_thread = threading.Thread(target = tts_process, args=(self.tts_queue,))
         self.tts_thread.start()
 
