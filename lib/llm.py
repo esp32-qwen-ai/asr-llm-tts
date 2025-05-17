@@ -156,13 +156,13 @@ class LLM:
 
     def _init_local(self):
         self.provider = "本地"
-        self.model = "qwen3:8b"
+        self.model = self.config["llm"].get("model", "qwen3:8b")
         self.model_server = LLM.LOCAL_LLM_API
         print("use local llm")
 
     def _init_bailian(self):
         self.provider = "百炼"
-        self.model = "qwen3-235b-a22b"
+        self.model = self.config["llm"].get("model", "qwen3-235b-a22b")
         self.model_server = "https://dashscope.aliyuncs.com/compatible-mode/v1"
         print("use ali llm")
 
