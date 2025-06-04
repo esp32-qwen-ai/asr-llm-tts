@@ -12,14 +12,15 @@ asr:
 
 llm:
   # optional
-  provider: "本地"
+  provider: "百炼"
   # optional
   enable_thinking: false
+  model: qwen-max-latest
 
 tts:
   # optional
   provider: "本地"
   # optional
-  spk_id: "huamulan"
+  spk_id: "chelsie"
   # optional
   volume: 10
